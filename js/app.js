@@ -4,12 +4,10 @@ import { loadBranding } from './services/brandingService.js';
 import { getSupabase, resetSupabase } from './supabaseClient.js';
 import {
   hideLoader,
-  initNavigation,
   notifyError,
   setDbStatus,
   setUserBadge,
   showLoader,
-  showPage,
   showToast,
   startClock,
   closeModal,
@@ -102,7 +100,7 @@ function initEventListeners() {
   if (window.__listenersReady) return;
   window.__listenersReady = true;
 
-  // 🔥 NAVEGACIÓN FIX (SIDEBAR + MOBILE)
+  // 🔥 NAVEGACIÓN (ARREGLADA)
   document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(item => {
     item.addEventListener('click', () => {
       const page = item.dataset.page;
@@ -114,7 +112,7 @@ function initEventListeners() {
 
       item.classList.add('active');
 
-      // cambiar página
+      // cambiar páginas
       document.querySelectorAll('.page')
         .forEach(p => p.classList.remove('active'));
 
@@ -125,7 +123,7 @@ function initEventListeners() {
       const title = document.getElementById('page-title');
       if (title) title.textContent = item.textContent;
 
-      // cargar data
+      // cargar datos
       loadPageData(page);
     });
   });
@@ -153,17 +151,31 @@ function initEventListeners() {
 
   // STUDENTS
   document.getElementById('btn-add-student')?.addEventListener('click', openStudentModal);
-  document.getElementById('btn-save-student')?.addEventListener('click', saveStudentFromModal);
+  document.getElementById('btn-save-student')?.addEventListener('click', async () => {
+    await saveStudentFromModal();
+    populateGroupSelects();
+    populateReportGroups(getGroups());
+    renderStudentsTable(getValue('student-search'), document.getElementById('student-group-filter')?.value || '');
+    renderGroupsGrid();
+  });
 
   document.getElementById('student-search')?.addEventListener('input', debounce(() => {
     renderStudentsTable(getValue('student-search'), document.getElementById('student-group-filter')?.value || '');
   }, 250));
 
+  document.getElementById('student-group-filter')?.addEventListener('change', (e) => {
+    renderStudentsTable(getValue('student-search'), e.target.value || '');
+  });
+
   // GROUPS
   document.getElementById('btn-add-group')?.addEventListener('click', openGroupModal);
-  document.getElementById('btn-save-group')?.addEventListener('click', saveGroupFromModal);
+  document.getElementById('btn-save-group')?.addEventListener('click', async () => {
+    await saveGroupFromModal();
+    populateGroupSelects();
+    populateReportGroups(getGroups());
+  });
 
-  // REPORTS
+  // REPORTES
   document.getElementById('btn-generate-report')?.addEventListener('click', generateReport);
   document.getElementById('btn-export-report')?.addEventListener('click', exportReport);
 
@@ -186,5 +198,8 @@ function setDefaultDates() {
   if (!document.getElementById('report-to')?.value) setValue('report-to', today);
 }
 
-applyBrandingToDocument(APP_CONFIG);
-initApp();
+// 🔥 FIX FINAL (CLAVE)
+document.addEventListener('DOMContentLoaded', () => {
+  applyBrandingToDocument(APP_CONFIG);
+  initApp();
+});
