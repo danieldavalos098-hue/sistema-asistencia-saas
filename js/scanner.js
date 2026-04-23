@@ -7,9 +7,18 @@ import { renderTodayRecordsUI, setScanModeUI, showScanResult, showScannerState }
 
 let scanMode = 'ENTRADA';
 let scanner = null;
+
+// 🔥 control anti doble scan
 let lastScan = '';
 let lastScanTs = 0;
-const DEBOUNCE_MS = 1500; // más rápido
+const DEBOUNCE_MS = 1500;
+
+// 🔥 control por alumno (clave)
+const SCAN_COOLDOWN_MS = 16000; // 16 segundos
+const studentLastScan = {};
+
+// 🔥 control de proceso
+let isProcessing = false;
 
 export function getScanMode() {
   return scanMode;
@@ -36,7 +45,7 @@ export async function startScanner() {
       { facingMode: 'environment' },
       {
         fps: 12,
-        aspectRatio: 1.777 // pantalla completa (sin cuadro)
+        aspectRatio: 1.777 // pantalla completa
       },
       (code) => processCode(code),
       () => {}
@@ -60,14 +69,26 @@ export async function stopScanner() {
   showScannerState(false);
 }
 
+// 🔥 pausa temporal del scanner
+async function pauseScanner(ms = 1200) {
+  if (!scanner) return;
+  try {
+    await scanner.pause(true);
+    setTimeout(() => {
+      scanner.resume();
+    }, ms);
+  } catch {}
+}
+
 export async function processCode(code) {
+  // 🔥 evitar múltiples ejecuciones simultáneas
+  if (isProcessing) return;
+  isProcessing = true;
+
   try {
     let value = (code || '').trim().toUpperCase();
-
-    // limpiar espacios invisibles o saltos
     value = value.replace(/\s+/g, '');
 
-    // fallback manual
     if (!value) {
       value = document.getElementById('manual-code')?.value.trim().toUpperCase() || '';
     }
@@ -76,34 +97,36 @@ export async function processCode(code) {
 
     console.log("SCAN:", value);
 
-    // debounce (evita doble escaneo rápido)
+    // 🔥 debounce general
     if (value === lastScan && Date.now() - lastScanTs < DEBOUNCE_MS) return;
     lastScan = value;
     lastScanTs = Date.now();
 
     await ensureStudentDataLoaded({ students: true, groups: true });
 
-    // búsqueda flexible (por si el QR viene raro)
-    let student = findStudentByCode(value);
-
-    if (!student) {
-      student = findStudentByCode(value.replace('-', ''));
-    }
+    let student = findStudentByCode(value) || findStudentByCode(value.replace('-', ''));
 
     if (!student) {
       showToast(`Código no encontrado: ${value}`, 'error');
       showScanResult(null, null, scanMode, value);
 
-      // sonido error (opcional)
-      try {
-        new Audio('/error.mp3').play();
-      } catch {}
+      try { new Audio('/error.mp3').play(); } catch {}
 
       return;
     }
 
     const now = new Date();
+    const nowTs = Date.now();
 
+    // 🔥 BLOQUEO POR ALUMNO (ANTI DOBLE REAL)
+    if (studentLastScan[student.id] && (nowTs - studentLastScan[student.id] < SCAN_COOLDOWN_MS)) {
+      showToast("⏳ Espera unos segundos...", "warning");
+      return;
+    }
+
+    studentLastScan[student.id] = nowTs;
+
+    // 🔥 registrar asistencia
     await recordAttendance({
       studentId: student.id,
       type: scanMode,
@@ -117,12 +140,13 @@ export async function processCode(code) {
     showScanResult(student, group, scanMode, student.code, time);
     await renderTodayRecords();
 
-    // sonido éxito (opcional)
-    try {
-      new Audio('/success.mp3').play();
-    } catch {}
+    // 🔥 sonido éxito
+    try { new Audio('/success.mp3').play(); } catch {}
 
-    // WhatsApp automático
+    // 🔥 pausa scanner para evitar doble lectura
+    await pauseScanner(1200);
+
+    // 🔥 WhatsApp
     if (student.phone) {
       const notify = scanMode === 'ENTRADA' ? sendEntryMessage : sendExitMessage;
 
@@ -137,6 +161,11 @@ export async function processCode(code) {
   } finally {
     const input = document.getElementById('manual-code');
     if (input) input.value = '';
+
+    // liberar proceso
+    setTimeout(() => {
+      isProcessing = false;
+    }, 800);
   }
 }
 
