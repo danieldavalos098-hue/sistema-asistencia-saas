@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="application-name" content="Sistema de Asistencia - Estudiantes">
+  <title>Sistema de Asistencia - Estudiantes</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
+</head>
+<body>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-academy" data-brand-short-name>SISTEMA</div>
+    <div class="logo-name" data-brand-entity-name>Institución Educativa</div>
+    <div class="logo-sub">Sistema de Asistencia</div>
+  </div>
+
+  <nav class="sidebar-nav" aria-label="Navegacion principal">
+    <div class="nav-section">Principal</div>
+    <div class="nav-item active" data-page="dashboard" role="button" tabindex="0">Dashboard</div>
+    <div class="nav-item" data-page="scanner" role="button" tabindex="0">Escaner</div>
+    <div class="nav-section">Alumnos</div>
+    <div class="nav-item" data-page="students" role="button" tabindex="0">Alumnos</div>
+    <div class="nav-item" data-page="groups" role="button" tabindex="0">Grupos</div>
+    <div class="nav-section">Reportes</div>
+    <div class="nav-item" data-page="reports" role="button" tabindex="0">Reportes</div>
+    <div class="nav-item" data-page="activity" role="button" tabindex="0">Actividad</div>
+    <div class="nav-section">Configuracion</div>
+    <div class="nav-item" data-page="whatsapp" role="button" tabindex="0">WhatsApp</div>
+    <div class="nav-item" data-page="config" role="button" tabindex="0">Configuracion</div>
+  </nav>
+
+  <div class="sidebar-footer" data-brand-footer-text>© 2026 Sistema de Asistencia</div>
+</aside>
+
+<main class="main">
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger-btn" id="hamburger-btn" aria-label="Menu">☰</button>
+      <div class="topbar-title" id="page-title">Dashboard</div>
+    </div>
+    <div class="topbar-actions">
+      <div class="badge-live">EN VIVO</div>
+      <span class="topbar-time" id="topbar-time"></span>
+      <span id="user-badge" style="font-size:13px;color:var(--muted)"></span>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="content">
+    <section class="page active" id="page-dashboard">
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">Actividad Reciente</div>
+          <div class="activity-list" id="dashboard-activity"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Asistencia Hoy por Grupo</div>
+          <div class="report-bar-wrap" id="group-attendance-bars"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-scanner" style="padding:0;height:calc(100vh - 61px);overflow:hidden">
+      <div class="kiosk-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:22px">🏫</div>
+          <div>
+            <div style="font-family:'Montserrat',sans-serif;font-size:14px;font-weight:800;color:var(--accent)" data-brand-short-name>SISTEMA DE ASISTENCIA</div>
+            <div style="font-size:11px;color:var(--muted)" data-brand-entity-name>Institución Educativa</div>
+          </div>
+        </div>
+        <button id="kiosk-exit-btn" class="kiosk-exit-btn">Salir</button>
+      </div>
+
+      <div style="flex:1;position:relative;overflow:hidden;background:#000;min-height:0" id="scanner-wrap">
+        <div id="scanner-idle" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);gap:16px;padding:20px">
+          <div style="font-size:56px">📷</div>
+          <p style="font-size:18px;font-weight:700;color:white;margin:0;text-align:center">Escanear Codigo</p>
+          <p style="font-size:13px;color:var(--muted);margin:0;text-align:center">Activa la camara o ingresa el codigo manualmente</p>
+          <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px;margin-top:8px">
+            <button class="btn btn-primary" id="btn-start-scanner" style="font-size:16px;padding:14px;justify-content:center">Activar Camara</button>
+            <button class="btn btn-secondary" id="btn-enter-kiosk" style="font-size:13px;padding:10px;justify-content:center">Modo Quiosco</button>
+          </div>
+        </div>
+
+        <div id="scanner-active" style="display:none;position:absolute;inset:0">
+          <div id="interactive" style="position:absolute;inset:0;background:#000"></div>
+          <div style="position:absolute;top:0;left:0;right:0;z-index:10;padding:12px;display:flex;gap:8px">
+            <button id="btn-mode-entrada" style="flex:1;padding:12px 8px;border-radius:10px;border:2px solid #22c55e;background:rgba(34,197,94,0.25);color:#22c55e;font-size:14px;font-weight:800;cursor:pointer;backdrop-filter:blur(8px)">ENTRADA</button>
+            <button id="btn-mode-salida" style="flex:1;padding:12px 8px;border-radius:10px;border:2px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.4);color:rgba(255,255,255,0.5);font-size:14px;font-weight:800;cursor:pointer;backdrop-filter:blur(8px)">SALIDA</button>
+          </div>
+          <div style="position:absolute;inset:0;z-index:9;pointer-events:none;overflow:hidden">
+            <div style="position:absolute;left:0;right:0;height:3px;background:var(--accent);box-shadow:0 0 12px 2px rgba(245,200,0,0.7);animation:scanline 2s ease-in-out infinite"></div>
+          </div>
+          <div id="scan-result" style="position:absolute;bottom:0;left:0;right:0;z-index:10;background:rgba(17,24,39,0.92);backdrop-filter:blur(12px);padding:14px 16px;transform:translateY(100%);transition:transform 0.3s ease">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div id="scan-avatar" class="avatar" style="width:48px;height:48px;font-size:16px;flex-shrink:0"></div>
+              <div style="flex:1">
+                <div id="scan-name" style="font-size:16px;font-weight:700;color:white"></div>
+                <div id="scan-group" style="font-size:12px;color:#94a3b8"></div>
+              </div>
+              <div style="text-align:right">
+                <div id="scan-type"></div>
+                <div id="scan-time" style="font-size:12px;color:#64748b;margin-top:4px"></div>
+              </div>
+            </div>
+          </div>
+          <button id="btn-stop-scanner" style="position:absolute;bottom:16px;right:16px;z-index:11;background:rgba(239,68,68,0.85);border:none;border-radius:50%;width:48px;height:48px;color:white;font-size:20px;cursor:pointer;backdrop-filter:blur(8px)">✕</button>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;flex-shrink:0">
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input class="form-input" id="manual-code" placeholder="Codigo manual: STU-XXXXXX" style="flex:1;font-size:15px;height:44px">
+          <button class="btn btn-primary" id="btn-manual-register" style="padding:0 18px;height:44px;white-space:nowrap">Registrar</button>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:0.5px;margin-bottom:6px">REGISTROS DE HOY</div>
+        <div style="max-height:140px;overflow-y:auto">
+          <table style="width:100%;border-collapse:collapse"><tbody id="today-records"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-students">
+      <div class="filter-row" style="justify-content:space-between;margin-bottom:20px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <input class="search-input" id="student-search" placeholder="Buscar alumno o codigo...">
+          <select class="form-input group-select" id="student-group-filter" style="width:180px">
+            <option value="">Todos los grupos</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:10px">
+          <span id="students-count" style="font-size:13px;color:var(--muted);align-self:center"></span>
+          <button class="btn btn-primary" id="btn-add-student">Agregar Alumno</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Alumno</th><th>Grupo</th><th>WhatsApp</th><th>Apoderado</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="students-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-groups">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+        <div></div>
+        <button class="btn btn-primary" id="btn-add-group">Nuevo Grupo</button>
+      </div>
+      <div class="three-col" id="groups-grid"></div>
+    </section>
+
+    <section class="page" id="page-reports">
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">Filtros de Reporte</div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="margin:0">
+            <div class="form-label">Desde</div>
+            <input type="date" class="form-input" id="report-from" style="width:160px">
+          </div>
+          <div class="form-group" style="margin:0">
+            <div class="form-label">Hasta</div>
+            <input type="date" class="form-input" id="report-to" style="width:160px">
+          </div>
+          <div class="form-group" style="margin:0">
+            <div class="form-label">Grupo</div>
+            <select class="form-input" id="report-group" style="width:180px"><option value="">Todos los grupos</option></select>
+          </div>
+          <button class="btn btn-primary" id="btn-generate-report">Generar Reporte</button>
+          <button class="btn btn-secondary" id="btn-export-report">Exportar Excel</button>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">% Asistencia por Alumno</div>
+          <div class="report-bar-wrap" id="report-bars"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Detalle de Asistencia</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Alumno</th><th>Presentes</th><th>Ausentes</th><th>%</th></tr></thead>
+              <tbody id="report-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-activity">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+          <div class="card-title" style="margin:0">Registro de Actividad</div>
+          <select class="form-input" id="activity-filter" style="width:160px">
+            <option value="">Todos</option>
+            <option value="ENTRADA">Solo Entradas</option>
+            <option value="SALIDA">Solo Salidas</option>
+          </select>
+        </div>
+        <div class="activity-list" id="full-activity-list"></div>
+      </div>
+    </section>
+
+    <section class="page" id="page-whatsapp">
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">WhatsApp Cloud API</div>
+          <div class="wsp-status">
+            <div class="wsp-dot"></div>
+            <div>
+              <div style="font-size:13px;font-weight:600">Meta WhatsApp Cloud API</div>
+              <div style="font-size:12px;color:var(--muted)">Configuracion por usuario</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Access Token</label>
+            <input type="password" class="form-input" id="wsp-token" placeholder="EAAxxxxxxxxxx...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number ID</label>
+            <input type="text" class="form-input" id="wsp-phone-id" placeholder="123456789012345">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Business Account ID</label>
+            <input type="text" class="form-input" id="wsp-biz-id" placeholder="987654321098765">
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+            <button class="btn btn-primary" id="btn-save-wsp">Guardar Config</button>
+            <button class="btn btn-secondary" id="btn-test-wsp">Probar Conexion</button>
+          </div>
+          <div style="padding:14px;background:rgba(245,200,0,0.06);border:1px solid rgba(245,200,0,0.2);border-radius:12px">
+            <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:4px">Notificaciones de Inasistencia</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Envia WhatsApp a los apoderados de alumnos que no registraron entrada hoy.</div>
+            <button class="btn btn-primary" id="btn-send-absent" style="background:rgba(245,200,0,0.15);border:1px solid rgba(245,200,0,0.4);color:var(--accent)">Enviar Notificaciones</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Plantillas de Mensajes</div>
+          <div class="tabs">
+            <button class="tab active msg-tab-btn" data-tab="entry">Entrada</button>
+            <button class="tab msg-tab-btn" data-tab="exit">Salida</button>
+            <button class="tab msg-tab-btn" data-tab="absent">Inasistencia</button>
+          </div>
+          <div id="msg-entry" class="msg-tab">
+            <div class="form-group">
+              <label class="form-label">Mensaje de Entrada</label>
+              <textarea class="form-input" id="msg-entry-text" rows="4"></textarea>
+            </div>
+          </div>
+          <div id="msg-exit" class="msg-tab" style="display:none">
+            <div class="form-group">
+              <label class="form-label">Mensaje de Salida</label>
+              <textarea class="form-input" id="msg-exit-text" rows="4"></textarea>
+            </div>
+          </div>
+          <div id="msg-absent" class="msg-tab" style="display:none">
+            <div class="form-group">
+              <label class="form-label">Mensaje de Inasistencia</label>
+              <textarea class="form-input" id="msg-absent-text" rows="4"></textarea>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Variables disponibles</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <code style="background:var(--surface2);padding:3px 10px;border-radius:6px;font-size:12px">{{nombre}}</code>
+              <code style="background:var(--surface2);padding:3px 10px;border-radius:6px;font-size:12px">{{hora}}</code>
+              <code style="background:var(--surface2);padding:3px 10px;border-radius:6px;font-size:12px">{{fecha}}</code>
+              <code style="background:var(--surface2);padding:3px 10px;border-radius:6px;font-size:12px">{{grupo}}</code>
+              <code style="background:var(--surface2);padding:3px 10px;border-radius:6px;font-size:12px">{{entityName}}</code>
+            </div>
+          </div>
+          <button class="btn btn-primary" id="btn-save-templates">Guardar Plantillas</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-config">
+      <div style="font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;margin-bottom:4px">Configuracion</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:20px">Administra las opciones del sistema</div>
+
+      <div style="background:var(--surface);border-radius:14px;overflow:hidden;border:1px solid var(--border)">
+        <div class="config-item" id="config-db">
+          <div class="config-item-icon" style="background:rgba(245,200,0,0.12)">🗄️</div>
+          <div class="config-item-info">
+            <div class="config-item-title">Base de Datos</div>
+            <div class="config-item-desc">Reconectar Supabase</div>
+          </div>
+          <div id="db-status-badge" style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;background:rgba(100,116,139,0.15);color:#64748b">Verificando...</div>
+          <div class="config-item-chevron">›</div>
+        </div>
+
+        <div class="config-item" id="config-whatsapp">
+          <div class="config-item-icon" style="background:rgba(37,211,102,0.12)">💬</div>
+          <div class="config-item-info">
+            <div class="config-item-title">WhatsApp</div>
+            <div class="config-item-desc">Notificaciones a apoderados</div>
+          </div>
+          <div id="wa-status-badge" style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;background:rgba(100,116,139,0.15);color:#64748b">Sin configurar</div>
+          <div class="config-item-chevron">›</div>
+        </div>
+
+        <div class="config-item" id="config-kiosk">
+          <div class="config-item-icon" style="background:rgba(59,130,246,0.12)">🖥️</div>
+          <div class="config-item-info">
+            <div class="config-item-title">Modo Quiosco</div>
+            <div class="config-item-desc">Escaner sin menu para los alumnos</div>
+          </div>
+          <div class="config-item-chevron">›</div>
+        </div>
+
+        <div class="config-item" id="config-reports">
+          <div class="config-item-icon" style="background:rgba(16,185,129,0.12)">📊</div>
+          <div class="config-item-info">
+            <div class="config-item-title">Exportar Reportes</div>
+            <div class="config-item-desc">Descarga asistencia en Excel</div>
+          </div>
+          <div class="config-item-chevron">›</div>
+        </div>
+
+        <div class="config-item" style="cursor:default">
+          <div class="config-item-icon" style="background:rgba(245,200,0,0.12)">🏫</div>
+          <div class="config-item-info">
+            <div class="config-item-title" data-brand-entity-name>Institución Educativa</div>
+            <div class="config-item-desc" data-brand-footer-text>© 2026 Sistema de Asistencia</div>
+          </div>
+          <div style="font-size:11px;color:var(--accent);font-weight:600">2026</div>
+        </div>
+
+        <div style="padding:16px;border-top:1px solid var(--border);display:grid;gap:14px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Nombre de la Institución</label>
+            <input class="form-input" id="config-institution-name" placeholder="Institución Educativa">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">PIN de Quiosco</label>
+            <input class="form-input" id="config-kiosk-pin" placeholder="1234">
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<nav class="bottom-nav" id="bottom-nav" aria-label="Navegacion movil">
+  <button class="bottom-nav-item active" data-page="dashboard">Inicio</button>
+  <button class="bottom-nav-item" data-page="scanner">Escaner</button>
+  <button class="bottom-nav-item" data-page="students">Alumnos</button>
+  <button class="bottom-nav-item" data-page="reports">Reportes</button>
+  <button class="bottom-nav-item" data-page="config">Config</button>
+</nav>
+
+<div class="modal-overlay" id="modal-student">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="student-modal-title">Agregar Alumno</div>
+      <button class="modal-close" data-close="modal-student">×</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="st-name" placeholder="Nombre"></div>
+      <div class="form-group"><label class="form-label">Apellido</label><input class="form-input" id="st-lastname" placeholder="Apellido"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Grupo</label><select class="form-input group-select" id="st-group"><option value="">Sin grupo</option></select></div>
+      <div class="form-group"><label class="form-label">Fecha de Nacimiento</label><input type="date" class="form-input" id="st-dob"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nombre del Apoderado</label><input class="form-input" id="st-parent" placeholder="Nombre apoderado"></div>
+      <div class="form-group"><label class="form-label">WhatsApp Apoderado</label><input class="form-input" id="st-phone" placeholder="+51999999999"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-secondary" data-close="modal-student">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-student">Guardar Alumno</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-group">
+  <div class="modal" style="width:380px">
+    <div class="modal-header">
+      <div class="modal-title" id="group-modal-title">Nuevo Grupo</div>
+      <button class="modal-close" data-close="modal-group">×</button>
+    </div>
+    <div class="form-group"><label class="form-label">Nombre del Grupo</label><input class="form-input" id="grp-name" placeholder="Ej: 3ro A, 5to B"></div>
+    <div class="form-group">
+      <label class="form-label">Turno / Horario</label>
+      <select class="form-input" id="grp-shift"><option>Mañana</option><option>Tarde</option><option>Noche</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Profesor/a a cargo</label><input class="form-input" id="grp-teacher" placeholder="Nombre del profesor"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-secondary" data-close="modal-group">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-group">Crear Grupo</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-barcode">
+  <div class="modal" style="width:380px;text-align:center;padding:28px;position:relative">
+    <button class="modal-close" data-close="modal-barcode" style="position:absolute;top:16px;right:16px">×</button>
+    <div style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px" data-brand-card-title>Carné Estudiantil</div>
+    <div style="font-size:17px;font-weight:700;color:white;margin-bottom:20px" id="barcode-student-name"></div>
+    <div style="background:white;border-radius:12px;padding:20px 16px;margin-bottom:20px">
+      <div id="barcode-canvas" style="display:flex;justify-content:center;width:100%"></div>
+      <div style="margin-top:10px;font-size:13px;font-weight:600;color:#333;letter-spacing:1px" id="barcode-id-text"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn btn-secondary" data-close="modal-barcode" style="width:100%">Cerrar</button>
+      <button class="btn btn-primary" id="btn-download-barcode" style="width:100%">Descargar</button>
+    </div>
+  </div>
+</div>
+
+<div id="setup-overlay" style="display:none;position:fixed;inset:0;background:#0a0f1e;z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:2px solid var(--accent);border-radius:20px;padding:36px;width:460px;max-width:92vw">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:40px">🗄️</div>
+      <div style="font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;color:var(--accent);margin:8px 0">Conectar Base de Datos</div>
+      <div style="font-size:13px;color:var(--muted)">Ingresa tus credenciales de Supabase</div>
+    </div>
+    <div class="form-group"><label class="form-label">Project URL</label><input id="setup-url" type="url" class="form-input" placeholder="https://xxxxxxxx.supabase.co"></div>
+    <div class="form-group"><label class="form-label">Anon Key</label><textarea id="setup-key" rows="3" class="form-input" style="font-family:monospace;font-size:12px" placeholder="eyJhbGci..."></textarea></div>
+    <div id="setup-error" class="form-error" style="margin-bottom:12px"></div>
+    <div style="display:flex;gap:10px">
+      <button id="btn-conectar" class="btn btn-primary" style="flex:1;justify-content:center;font-size:15px;padding:13px">Conectar</button>
+      <button id="btn-sin-nube" class="btn btn-secondary" style="padding:13px 18px">Sin nube</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<div id="global-loader"><div class="loader-spinner"></div><p>Cargando datos...</p></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
