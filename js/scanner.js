@@ -9,7 +9,7 @@ let scanMode = 'ENTRADA';
 let scanner = null;
 let lastScan = '';
 let lastScanTs = 0;
-const DEBOUNCE_MS = 3000;
+const DEBOUNCE_MS = 1500; // más rápido
 
 export function getScanMode() {
   return scanMode;
@@ -31,12 +31,17 @@ export async function startScanner() {
 
   try {
     scanner = new window.Html5Qrcode('interactive');
+
     await scanner.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 250, height: 100 } },
+      {
+        fps: 12,
+        aspectRatio: 1.777 // pantalla completa (sin cuadro)
+      },
       (code) => processCode(code),
       () => {}
     );
+
   } catch (error) {
     notifyError(error, 'No se pudo acceder a la camara.');
     await stopScanner();
@@ -57,23 +62,48 @@ export async function stopScanner() {
 
 export async function processCode(code) {
   try {
-    let value = (code || '').trim();
-    if (!value) value = document.getElementById('manual-code')?.value.trim() || '';
+    let value = (code || '').trim().toUpperCase();
+
+    // limpiar espacios invisibles o saltos
+    value = value.replace(/\s+/g, '');
+
+    // fallback manual
+    if (!value) {
+      value = document.getElementById('manual-code')?.value.trim().toUpperCase() || '';
+    }
+
     if (!value) return;
 
+    console.log("SCAN:", value);
+
+    // debounce (evita doble escaneo rápido)
     if (value === lastScan && Date.now() - lastScanTs < DEBOUNCE_MS) return;
     lastScan = value;
     lastScanTs = Date.now();
 
     await ensureStudentDataLoaded({ students: true, groups: true });
-    const student = findStudentByCode(value);
+
+    // búsqueda flexible (por si el QR viene raro)
+    let student = findStudentByCode(value);
+
+    if (!student) {
+      student = findStudentByCode(value.replace('-', ''));
+    }
+
     if (!student) {
       showToast(`Código no encontrado: ${value}`, 'error');
       showScanResult(null, null, scanMode, value);
+
+      // sonido error (opcional)
+      try {
+        new Audio('/error.mp3').play();
+      } catch {}
+
       return;
     }
 
     const now = new Date();
+
     await recordAttendance({
       studentId: student.id,
       type: scanMode,
@@ -87,12 +117,21 @@ export async function processCode(code) {
     showScanResult(student, group, scanMode, student.code, time);
     await renderTodayRecords();
 
+    // sonido éxito (opcional)
+    try {
+      new Audio('/success.mp3').play();
+    } catch {}
+
+    // WhatsApp automático
     if (student.phone) {
       const notify = scanMode === 'ENTRADA' ? sendEntryMessage : sendExitMessage;
-      notify(student.phone, student.name, time, date, group?.name || '').catch((error) => {
-        showToast(error?.message || 'No se pudo enviar la notificación.', 'warning');
-      });
+
+      notify(student.phone, student.name, time, date, group?.name || '')
+        .catch((error) => {
+          showToast(error?.message || 'No se pudo enviar la notificación.', 'warning');
+        });
     }
+
   } catch (error) {
     notifyError(error, 'No se pudo registrar la asistencia.');
   } finally {
@@ -120,6 +159,7 @@ export function enterKiosk() {
 
 export function exitKiosk() {
   const pin = prompt('Ingresa el PIN para salir del modo quiosco:');
+
   if (pin === getConfiguredKioskPin()) {
     document.body.classList.remove('kiosk-mode');
     showToast('Modo Quiosco desactivado');
