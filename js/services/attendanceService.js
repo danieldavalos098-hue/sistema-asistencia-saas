@@ -6,7 +6,7 @@ function buildAttendanceError(message, error) {
   return new Error(error?.message || message);
 }
 
-// 🔥 NUEVO: genera clave única por minuto
+// 🔥 Genera clave única por minuto (anti duplicado)
 function generateMinuteKey(studentId, type, isoTimestamp) {
   return `${studentId}-${type}-${isoTimestamp.slice(0, 16)}`;
 }
@@ -25,7 +25,7 @@ export async function recordAttendance({ studentId, type, timestamp }) {
       student_id: studentId,
       type,
       timestamp: iso,
-      minute_key: generateMinuteKey(studentId, type, iso), // 🔥 clave anti-duplicado
+      minute_key: generateMinuteKey(studentId, type, iso),
     };
 
     const { data, error } = await sb
@@ -35,7 +35,6 @@ export async function recordAttendance({ studentId, type, timestamp }) {
       .single();
 
     if (error) {
-      // 🔥 DETECTAR DUPLICADO (índice)
       if (error.code === '23505') {
         throw new Error('⚠️ Ya registraste asistencia hace unos segundos');
       }
@@ -49,6 +48,32 @@ export async function recordAttendance({ studentId, type, timestamp }) {
   }
 }
 
+// 🔥 NUEVO: eliminar asistencia (soft delete)
+export async function deleteAttendance(attendanceId) {
+  try {
+    const sb = getSupabase();
+    const user = await getCurrentUser();
+    if (!sb || !user) throw new Error('Sin conexión o sin sesión.');
+
+    const { error } = await sb
+      .from('attendance')
+      .update({
+        deleted: true,
+        deleted_at: new Date().toISOString(),
+        deleted_by: user.id,
+      })
+      .eq('id', attendanceId);
+
+    if (error) {
+      throw buildAttendanceError('No se pudo eliminar la asistencia.', error);
+    }
+
+    return true;
+  } catch (error) {
+    throw buildAttendanceError('No se pudo eliminar la asistencia.', error);
+  }
+}
+
 export async function fetchTodayRecords(limit = 20) {
   try {
     const sb = getSupabase();
@@ -56,17 +81,21 @@ export async function fetchTodayRecords(limit = 20) {
     if (!sb || !user) return [];
 
     const today = toDateString();
+
     const { data, error } = await sb
       .from('attendance')
       .select('*, students(name, lastname, group_id)')
       .eq('user_id', user.id)
-      .eq('deleted', false) // 🔥 evitar eliminados
+      .eq('deleted', false)
       .gte('timestamp', `${today}T00:00:00`)
       .lte('timestamp', `${today}T23:59:59`)
       .order('timestamp', { ascending: false })
       .limit(limit);
 
-    if (error) throw buildAttendanceError('No se pudieron cargar los registros del día.', error);
+    if (error) {
+      throw buildAttendanceError('No se pudieron cargar los registros del día.', error);
+    }
+
     return data || [];
   } catch (error) {
     throw buildAttendanceError('No se pudieron cargar los registros del día.', error);
@@ -83,14 +112,17 @@ export async function fetchAttendance({ from, to, groupId } = {}) {
       .from('attendance')
       .select('*, students(id, name, lastname, group_id)')
       .eq('user_id', user.id)
-      .eq('deleted', false) // 🔥 importante
+      .eq('deleted', false)
       .order('timestamp', { ascending: false });
 
     if (from) query = query.gte('timestamp', `${from}T00:00:00`);
     if (to) query = query.lte('timestamp', `${to}T23:59:59`);
 
     const { data, error } = await query;
-    if (error) throw buildAttendanceError('No se pudieron cargar los registros de asistencia.', error);
+
+    if (error) {
+      throw buildAttendanceError('No se pudieron cargar los registros de asistencia.', error);
+    }
 
     return groupId
       ? (data || []).filter((record) => record.students?.group_id === groupId)
@@ -110,7 +142,7 @@ export async function fetchRecentActivity({ type = '', limit = 100, todayOnly = 
       .from('attendance')
       .select('*, students(name, lastname, group_id)')
       .eq('user_id', user.id)
-      .eq('deleted', false) // 🔥 importante
+      .eq('deleted', false)
       .order('timestamp', { ascending: false })
       .limit(limit);
 
@@ -124,7 +156,10 @@ export async function fetchRecentActivity({ type = '', limit = 100, todayOnly = 
     }
 
     const { data, error } = await query;
-    if (error) throw buildAttendanceError('No se pudo cargar la actividad reciente.', error);
+
+    if (error) {
+      throw buildAttendanceError('No se pudo cargar la actividad reciente.', error);
+    }
 
     return data || [];
   } catch (error) {
