@@ -1,16 +1,14 @@
 import { requireAuth, logout } from './auth.js';
 import { APP_CONFIG } from './config.js';
 import { loadBranding } from './services/brandingService.js';
-import { getSupabase, resetSupabase } from './supabaseClient.js';
+import { getSupabase } from './supabaseClient.js';
 import {
   hideLoader,
   notifyError,
   setDbStatus,
   setUserBadge,
   showLoader,
-  showToast,
-  startClock,
-  closeModal,
+  startClock
 } from './ui.js';
 import { applyBrandingToDocument } from './ui/brandingUI.js';
 import {
@@ -43,8 +41,17 @@ import {
   populateReportGroups,
   renderActivityPage
 } from './reports.js';
-import { getWaSettings, initWaForm } from './whatsapp.js';
+import { initWaForm } from './whatsapp.js';
 
+
+// 🔥 LIMPIAR VISTA (SOLUCIÓN CLAVE)
+function clearView() {
+  const pages = document.querySelectorAll('.page');
+  pages.forEach(p => p.classList.remove('active'));
+}
+
+
+// 🔥 CARGADORES DE PÁGINA
 const pageLoaders = {
   dashboard: async () => loadDashboardStats(),
   scanner: async () => renderTodayRecords(),
@@ -53,8 +60,11 @@ const pageLoaders = {
   reports: async () => loadReportsPage(),
   activity: async () => renderActivityPage(document.getElementById('activity-filter')?.value || ''),
   whatsapp: async () => initWaForm(),
+  config: async () => {} // placeholder limpio
 };
 
+
+// 🔥 INICIO APP
 async function initApp() {
   const user = await requireAuth();
   if (!user) return;
@@ -65,11 +75,6 @@ async function initApp() {
   const sb = getSupabase();
   setDbStatus(!!sb);
 
-  if (!sb) {
-    showSetupOverlay();
-    return;
-  }
-
   showLoader('Cargando datos...');
 
   try {
@@ -78,59 +83,59 @@ async function initApp() {
     setDefaultDates();
     setScanMode('ENTRADA');
 
-    await loadPageData('dashboard');
+    await loadPage('dashboard');
 
   } catch (error) {
-    notifyError(error, 'No se pudo inicializar la aplicacion.');
+    notifyError(error, 'No se pudo inicializar la aplicación.');
   } finally {
     hideLoader();
   }
 }
 
-async function loadPageData(page) {
-  if (!pageLoaders[page]) return;
-  try {
-    await pageLoaders[page]();
-  } catch (error) {
-    notifyError(error, `No se pudo cargar la pagina ${page}.`);
+
+// 🔥 CAMBIO DE PÁGINA (NAVEGACIÓN LIMPIA)
+async function loadPage(page) {
+  clearView();
+
+  const target = document.getElementById(`page-${page}`);
+  if (target) target.classList.add('active');
+
+  const title = document.getElementById('page-title');
+  if (title) title.textContent = target?.dataset?.title || page;
+
+  if (pageLoaders[page]) {
+    try {
+      await pageLoaders[page]();
+    } catch (error) {
+      notifyError(error, `Error cargando ${page}`);
+    }
   }
 }
 
+
+// 🔥 EVENTOS
 function initEventListeners() {
   if (window.__listenersReady) return;
   window.__listenersReady = true;
 
-  // 🔥 NAVEGACIÓN (ARREGLADA)
+  // SIDEBAR
   document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(item => {
     item.addEventListener('click', () => {
       const page = item.dataset.page;
       if (!page) return;
 
-      // activar menú
       document.querySelectorAll('.nav-item, .bottom-nav-item')
         .forEach(i => i.classList.remove('active'));
 
       item.classList.add('active');
 
-      // cambiar páginas
-      document.querySelectorAll('.page')
-        .forEach(p => p.classList.remove('active'));
-
-      const target = document.getElementById(`page-${page}`);
-      if (target) target.classList.add('active');
-
-      // título
-      const title = document.getElementById('page-title');
-      if (title) title.textContent = item.textContent;
-
-      // cargar datos
-      loadPageData(page);
+      loadPage(page);
     });
   });
 
   // LOGOUT
   document.getElementById('btn-logout')?.addEventListener('click', async () => {
-    if (!confirm('¿Cerrar sesion?')) return;
+    if (!confirm('¿Cerrar sesión?')) return;
     await logout();
     window.location.href = 'login.html';
   });
@@ -184,12 +189,8 @@ function initEventListeners() {
   });
 }
 
-function showSetupOverlay() {
-  document.getElementById('setup-overlay').style.display = 'flex';
-  setValue('setup-url', localStorage.getItem('sb_url') || '');
-  setValue('setup-key', localStorage.getItem('sb_key') || '');
-}
 
+// 🔥 FECHAS
 function setDefaultDates() {
   const today = toDateString();
   const monthAgo = toDateString(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
@@ -198,7 +199,8 @@ function setDefaultDates() {
   if (!document.getElementById('report-to')?.value) setValue('report-to', today);
 }
 
-// 🔥 FIX FINAL (CLAVE)
+
+// 🔥 INIT
 document.addEventListener('DOMContentLoaded', () => {
   applyBrandingToDocument(APP_CONFIG);
   initApp();
