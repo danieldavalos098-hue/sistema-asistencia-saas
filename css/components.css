@@ -1,6 +1,6 @@
+
 /* ============================================================
-   COMPONENTS.CSS — Cards, buttons, forms, tables, modals,
-                    badges, toasts, activity, reports, scanner
+   COMPONENTS.CSS — UI limpia + SaaS style
    ============================================================ */
 
 /* ── CARDS ─────────────────────────────────────────────────── */
@@ -9,6 +9,12 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
+  transition: 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
 }
 
 .card-title {
@@ -39,6 +45,11 @@
   padding: 20px;
   position: relative;
   overflow: hidden;
+  transition: 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
 }
 
 .stat-card::before {
@@ -78,6 +89,11 @@
   border: none;
   cursor: pointer;
   font-family: 'Outfit', sans-serif;
+  transition: 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
 }
 
 .btn-primary {
@@ -95,7 +111,14 @@
   color: var(--danger);
 }
 
-/* ── DELETE BUTTON (NUEVO PRO) ─────────────────────────────── */
+/* botones pequeños */
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+/* ── DELETE BUTTON ───────────────────────────────────────────── */
 .btn-delete {
   background: transparent;
   border: 1px solid transparent;
@@ -118,10 +141,6 @@
   transform: scale(1.1);
 }
 
-.btn-delete:active {
-  transform: scale(0.95);
-}
-
 /* ── FORMS ───────────────────────────────────────────────────── */
 .form-group { margin-bottom: 16px; }
 
@@ -135,11 +154,61 @@
 }
 
 /* ── TABLES ──────────────────────────────────────────────────── */
-table { width: 100%; border-collapse: collapse; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
 
 td {
   padding: 14px 16px;
   border-bottom: 1px solid rgba(30,45,71,0.5);
+}
+
+tr {
+  transition: 0.2s ease;
+}
+
+tr:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+/* ── STUDENTS UI FIX ─────────────────────────────────────────── */
+.student-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.student-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.student-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.student-id {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.student-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* avatar */
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 13px;
 }
 
 /* ── ACTIVITY LIST ───────────────────────────────────────────── */
@@ -149,13 +218,24 @@ td {
   gap: 14px;
   padding: 14px 0;
   border-bottom: 1px solid rgba(30,45,71,0.4);
+  transition: 0.2s ease;
+}
+
+.activity-item:hover {
+  background: rgba(255,255,255,0.03);
 }
 
 .activity-info { flex: 1; }
 
-.activity-name { font-size: 14px; font-weight: 500; }
+.activity-name {
+  font-size: 14px;
+  font-weight: 500;
+}
 
-.activity-time { font-size: 12px; color: var(--muted); }
+.activity-time {
+  font-size: 12px;
+  color: var(--muted);
+}
 
 /* ── SCANNER ─────────────────────────────────────────────────── */
 .scan-mode-btn {
