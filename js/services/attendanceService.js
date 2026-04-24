@@ -48,7 +48,7 @@ export async function recordAttendance({ studentId, type, timestamp }) {
   }
 }
 
-// 🔥 NUEVO: eliminar asistencia (soft delete)
+// 🔥 eliminar asistencia (soft delete)
 export async function deleteAttendance(attendanceId) {
   try {
     const sb = getSupabase();
@@ -84,7 +84,14 @@ export async function fetchTodayRecords(limit = 20) {
 
     const { data, error } = await sb
       .from('attendance')
-      .select('*, students(name, lastname, group_id)')
+      .select(`
+        *,
+        students (
+          name,
+          lastname,
+          group_id
+        )
+      `)
       .eq('user_id', user.id)
       .eq('deleted', false)
       .gte('timestamp', `${today}T00:00:00`)
@@ -110,7 +117,15 @@ export async function fetchAttendance({ from, to, groupId } = {}) {
 
     let query = sb
       .from('attendance')
-      .select('*, students(id, name, lastname, group_id)')
+      .select(`
+        *,
+        students (
+          id,
+          name,
+          lastname,
+          group_id
+        )
+      `)
       .eq('user_id', user.id)
       .eq('deleted', false)
       .order('timestamp', { ascending: false });
@@ -132,6 +147,7 @@ export async function fetchAttendance({ from, to, groupId } = {}) {
   }
 }
 
+// 🔥 FIX DASHBOARD (actividad reciente)
 export async function fetchRecentActivity({ type = '', limit = 100, todayOnly = false } = {}) {
   try {
     const sb = getSupabase();
@@ -140,7 +156,14 @@ export async function fetchRecentActivity({ type = '', limit = 100, todayOnly = 
 
     let query = sb
       .from('attendance')
-      .select('*, students(name, lastname, group_id)')
+      .select(`
+        *,
+        students (
+          name,
+          lastname,
+          group_id
+        )
+      `)
       .eq('user_id', user.id)
       .eq('deleted', false)
       .order('timestamp', { ascending: false })
@@ -149,7 +172,8 @@ export async function fetchRecentActivity({ type = '', limit = 100, todayOnly = 
     if (type) query = query.eq('type', type);
 
     if (todayOnly) {
-      const today = toDateString();
+      const today = new Date().toISOString().split('T')[0];
+
       query = query
         .gte('timestamp', `${today}T00:00:00`)
         .lte('timestamp', `${today}T23:59:59`);
@@ -157,12 +181,11 @@ export async function fetchRecentActivity({ type = '', limit = 100, todayOnly = 
 
     const { data, error } = await query;
 
-    if (error) {
-      throw buildAttendanceError('No se pudo cargar la actividad reciente.', error);
-    }
+    if (error) throw error;
 
     return data || [];
+
   } catch (error) {
-    throw buildAttendanceError('No se pudo cargar la actividad reciente.', error);
+    throw new Error(error.message || 'Error cargando actividad');
   }
 }
