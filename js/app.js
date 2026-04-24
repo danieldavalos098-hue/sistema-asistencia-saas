@@ -1,32 +1,59 @@
-import { loadDashboardStats } from './reports.js';
+// 🔥 APP ESTABLE FINAL (SIN ERRORES)
 
-// 🔥 navegación simple sin romper app
-function initNavigation() {
-  document.querySelectorAll('[data-view]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const view = btn.dataset.view;
+window.addEventListener('DOMContentLoaded', () => {
 
-      document.querySelectorAll('.view').forEach(v => {
-        v.style.display = 'none';
-      });
+  console.log('APP OK ✅');
 
-      const target = document.getElementById(view);
-      if (target) target.style.display = 'block';
+  const navItems = document.querySelectorAll('.nav-item, .bottom-nav-item');
+  const pages = document.querySelectorAll('.page');
+  const title = document.getElementById('page-title');
 
-      // cargar dashboard
-      if (view === 'dashboard') {
-        loadDashboardStats();
-      }
+  // 🔹 navegación
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const page = item.dataset.page;
+      if (!page) return;
+
+      // activar menú
+      navItems.forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+
+      // ocultar páginas
+      pages.forEach(p => p.classList.remove('active'));
+
+      // mostrar página
+      const target = document.getElementById(`page-${page}`);
+      if (target) target.classList.add('active');
+
+      // cambiar título
+      if (title) title.textContent = item.textContent.trim();
+
+      console.log('Ir a:', page);
     });
   });
-}
 
-// 🔥 inicio seguro
-window.addEventListener('DOMContentLoaded', () => {
-  try {
-    initNavigation();
-    loadDashboardStats();
-  } catch (err) {
-    console.error('Error inicializando app:', err);
+  // 🔹 botón descargar carnet
+  const btnDownload = document.getElementById('btn-download-barcode');
+
+  if (btnDownload) {
+    btnDownload.addEventListener('click', () => {
+      const canvas = document.getElementById('barcode-cv');
+      if (!canvas) return;
+
+      const link = document.createElement('a');
+      link.download = 'carnet.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    });
   }
+
+  // 🔹 cerrar modales
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-close');
+      const modal = document.getElementById(id);
+      if (modal) modal.style.display = 'none';
+    });
+  });
+
 });
