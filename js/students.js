@@ -1,3 +1,7 @@
+// ============================================================
+// students.js
+// ============================================================
+
 import {
   createGroup,
   createStudent,
@@ -26,6 +30,10 @@ import {
   renderStudentsTableUI,
 } from './ui/studentsUI.js';
 
+export { getStudents, getGroups, getStudent, getGroup, findStudentByCode };
+
+
+// ── Carga de páginas ─────────────────────────────────────────
 export async function loadStudentsPage() {
   try {
     await ensureStudentDataLoaded({ students: true, groups: true });
@@ -47,28 +55,27 @@ export async function loadGroupsPage() {
   }
 }
 
-export { getStudents, getGroups, getStudent, getGroup, findStudentByCode };
 
+// ── Render ───────────────────────────────────────────────────
 export function renderStudentsTable(filter = '', groupId = '') {
-  renderStudentsTableUI({
-    onEdit: openStudentModal,
-    onDelete: confirmDeleteStudent,
-    onBarcode: openBarcodeModal,
-  }, { filter, groupId });
+  renderStudentsTableUI(
+    { onEdit: openStudentModal, onDelete: confirmDeleteStudent, onBarcode: openBarcodeModal },
+    { filter, groupId }
+  );
 }
 
 export function renderGroupsGrid() {
-  renderGroupsGridUI({
-    onEdit: openGroupModal,
-    onDelete: confirmDeleteGroup,
-  });
+  renderGroupsGridUI({ onEdit: openGroupModal, onDelete: confirmDeleteGroup });
 }
 
 export function populateGroupSelects() {
   populateGroupSelectsUI();
 }
 
+
+// ── Modal Alumno ─────────────────────────────────────────────
 export function openStudentModal(studentId = null) {
+  populateGroupSelectsUI();
   openStudentModalUI(studentId);
 }
 
@@ -78,7 +85,6 @@ export async function saveStudentFromModal() {
     showToast('El nombre es obligatorio.', 'error');
     return;
   }
-
   try {
     if (id) {
       await updateStudent(id, payload);
@@ -87,7 +93,6 @@ export async function saveStudentFromModal() {
       await createStudent(payload);
       showToast('Alumno agregado ✅', 'success');
     }
-
     closeStudentModalUI();
     renderStudentsTable();
     renderGroupsGrid();
@@ -99,8 +104,7 @@ export async function saveStudentFromModal() {
 async function confirmDeleteStudent(id) {
   const student = getStudent(id);
   if (!student) return;
-  if (!confirm(`¿Eliminar a ${student.name} ${student.lastname || ''}? Esta accion no se puede deshacer.`)) return;
-
+  if (!confirm(`¿Eliminar a ${student.name} ${student.lastname || ''}? Esta acción no se puede deshacer.`)) return;
   try {
     await deleteStudent(id);
     showToast('Alumno eliminado.', 'success');
@@ -111,6 +115,8 @@ async function confirmDeleteStudent(id) {
   }
 }
 
+
+// ── Modal Grupo ──────────────────────────────────────────────
 export function openGroupModal(groupId = null) {
   openGroupModalUI(groupId);
 }
@@ -121,7 +127,6 @@ export async function saveGroupFromModal() {
     showToast('El nombre del grupo es obligatorio.', 'error');
     return;
   }
-
   try {
     if (id) {
       await updateGroup(id, payload);
@@ -130,7 +135,6 @@ export async function saveGroupFromModal() {
       await createGroup(payload);
       showToast('Grupo creado ✅', 'success');
     }
-
     closeGroupModalUI();
     renderGroupsGrid();
     populateGroupSelects();
@@ -143,7 +147,6 @@ async function confirmDeleteGroup(id) {
   const group = getGroup(id);
   if (!group) return;
   if (!confirm(`¿Eliminar el grupo "${group.name}"?`)) return;
-
   try {
     await deleteGroup(id);
     showToast('Grupo eliminado.', 'success');
@@ -154,6 +157,8 @@ async function confirmDeleteGroup(id) {
   }
 }
 
+
+// ── Modal Carné ──────────────────────────────────────────────
 export function openBarcodeModal(studentId) {
   const student = getStudent(studentId);
   if (!student) return;

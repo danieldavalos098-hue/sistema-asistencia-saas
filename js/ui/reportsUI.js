@@ -1,72 +1,50 @@
+// ============================================================
+// ui/reportsUI.js
+// ============================================================
+
 import { deleteAttendance } from '../services/attendanceService.js';
 import { showToast } from '../ui.js';
-
-
-// 🔧 helpers básicos (por si no existen globales)
-function el(tag, { className = '', text = '', attrs = {} } = {}) {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  if (text) element.textContent = text;
-  Object.entries(attrs).forEach(([k, v]) => element.setAttribute(k, v));
-  return element;
-}
+import { el } from './dom.js';
 
 function formatTime(date) {
   return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatDate(date) {
-  return new Date(date).toLocaleDateString();
+  return new Date(date).toLocaleDateString('es-PE');
+}
+
+function pctColor(pct) {
+  if (pct >= 80) return '#22c55e';
+  if (pct >= 60) return '#f59e0b';
+  return '#ef4444';
 }
 
 
-// =============================
-// 🔥 ITEM DE ACTIVIDAD
-// =============================
+// ── Item de actividad ────────────────────────────────────────
 function createActivityItem(record, compact = false) {
   const icon = record.type === 'ENTRADA' ? '🟢' : '🟡';
-  const cls = record.type === 'ENTRADA' ? 'in' : 'out';
+  const cls  = record.type === 'ENTRADA' ? 'in' : 'out';
   const name = `${record.students?.name || ''} ${record.students?.lastname || ''}`.trim() || '—';
 
   const item = el('div', { className: 'activity-item' });
+  item.append(el('div', { className: `activity-icon ${cls}`, text: icon }));
 
-  // icono
-  item.append(
-    el('div', { className: `activity-icon ${cls}`, text: icon })
-  );
-
-  // info
   const info = el('div', { className: 'activity-info' });
   info.append(
     el('div', { className: 'activity-name', text: name }),
     el('div', {
       className: 'activity-detail',
-      text: compact
-        ? record.type
-        : `${record.type} · ${formatDate(record.timestamp)}`,
+      text: compact ? record.type : `${record.type} · ${formatDate(record.timestamp)}`,
     }),
   );
-
   item.append(info);
 
-  // hora
-  item.append(
-    el('div', {
-      className: 'activity-time',
-      text: formatTime(record.timestamp),
-    })
-  );
+  item.append(el('div', { className: 'activity-time', text: formatTime(record.timestamp) }));
 
-  // 🗑 eliminar
-  const deleteBtn = el('button', {
-    className: 'btn-delete',
-    text: '🗑',
-    attrs: { title: 'Eliminar asistencia' }
-  });
-
+  const deleteBtn = el('button', { className: 'btn-delete', text: '🗑', attrs: { title: 'Eliminar' } });
   deleteBtn.addEventListener('click', async () => {
     if (!confirm('¿Eliminar esta asistencia?')) return;
-
     try {
       await deleteAttendance(record.id);
       showToast('Asistencia eliminada ✅', 'success');
@@ -75,105 +53,154 @@ function createActivityItem(record, compact = false) {
       showToast(error.message, 'error');
     }
   });
-
   item.append(deleteBtn);
 
   return item;
 }
 
 
-// =============================
-// 📊 DASHBOARD ACTIVIDAD
-// =============================
+// ── Dashboard: actividad reciente ────────────────────────────
 export function renderDashboardActivity(data = []) {
   const container = document.getElementById('dashboard-activity');
   if (!container) return;
-
   container.innerHTML = '';
-
   if (!data.length) {
-    container.innerHTML = '<p style="opacity:.6">Sin actividad</p>';
+    container.innerHTML = '<p style="opacity:.6;padding:16px">Sin actividad hoy</p>';
     return;
   }
-
-  data.forEach(record => {
-    container.append(createActivityItem(record, true));
-  });
+  data.slice(0, 20).forEach(record => container.append(createActivityItem(record, true)));
 }
 
 
-// =============================
-// 📊 ACTIVITY PAGE (🔥 ESTA FALTABA)
-// =============================
+// ── Página Actividad ──────────────────────────────────────────
+// HTML id: full-activity-list
 export function renderActivityPageUI(data = []) {
-  const container = document.getElementById('activity-container');
+  const container = document.getElementById('full-activity-list');
   if (!container) return;
+  container.innerHTML = '';
+  if (!data.length) {
+    container.innerHTML = '<p style="opacity:.6;padding:16px">Sin actividad reciente</p>';
+    return;
+  }
+  data.forEach(record => container.append(createActivityItem(record, false)));
+}
 
+
+// ── Dashboard: cards de estadísticas ─────────────────────────
+// HTML id: stats-grid (renderizamos dentro)
+export function renderDashboardStatsCards({ total, entered, exited, absent }) {
+  const grid = document.getElementById('stats-grid');
+  if (!grid) return;
+
+  grid.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-value">${total ?? 0}</div>
+      <div class="stat-label">Total Alumnos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:#22c55e">${entered ?? 0}</div>
+      <div class="stat-label">Entradas Hoy</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:#f59e0b">${exited ?? 0}</div>
+      <div class="stat-label">Salidas Hoy</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:#ef4444">${absent ?? 0}</div>
+      <div class="stat-label">Ausentes</div>
+    </div>
+  `;
+}
+
+
+// ── Dashboard: barras por grupo ──────────────────────────────
+// HTML id: group-attendance-bars
+export function renderGroupAttendanceBars(groups = []) {
+  const container = document.getElementById('group-attendance-bars');
+  if (!container) return;
   container.innerHTML = '';
 
-  if (!data.length) {
-    container.innerHTML = '<p style="opacity:.6">Sin actividad reciente</p>';
+  if (!groups.length) {
+    container.innerHTML = '<p style="opacity:.6;padding:16px">Sin grupos</p>';
     return;
   }
 
-  data.forEach(record => {
-    container.append(createActivityItem(record, false));
-  });
-}
+  groups.forEach(({ group, present, total, percentage }) => {
+    const wrap = el('div', { style: { marginBottom: '12px' } });
 
-
-// =============================
-// 📊 DASHBOARD CARDS
-// =============================
-export function renderDashboardStatsCards({ total, entered, exited, absent }) {
-  const elTotal = document.getElementById('stat-total');
-  const elIn = document.getElementById('stat-entered');
-  const elOut = document.getElementById('stat-exited');
-  const elAbsent = document.getElementById('stat-absent');
-
-  if (elTotal) elTotal.textContent = total ?? 0;
-  if (elIn) elIn.textContent = entered ?? 0;
-  if (elOut) elOut.textContent = exited ?? 0;
-  if (elAbsent) elAbsent.textContent = absent ?? 0;
-}
-
-
-// =============================
-// 📊 GRUPOS DASHBOARD
-// =============================
-export function renderGroupAttendanceBars(groups = []) {
-  const container = document.getElementById('group-bars');
-  if (!container) return;
-
-  container.innerHTML = '';
-
-  groups.forEach(group => {
-    const bar = el('div', { className: 'group-bar' });
-
-    bar.append(
-      el('div', { text: group.name }),
-      el('div', { text: `${group.present}/${group.total}` })
+    const labelRow = el('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '13px' } });
+    labelRow.append(
+      el('span', { text: group.name }),
+      el('span', { text: `${present}/${total} (${percentage}%)`, style: { color: pctColor(percentage) } }),
     );
 
-    container.append(bar);
+    const barBg = el('div', { style: { background: 'var(--surface2)', borderRadius: '6px', height: '8px', overflow: 'hidden' } });
+    const barFg = el('div', { style: { height: '8px', borderRadius: '6px', background: pctColor(percentage), width: `${percentage}%`, transition: 'width .4s' } });
+    barBg.append(barFg);
+
+    wrap.append(labelRow, barBg);
+    container.append(wrap);
   });
 }
 
 
-// =============================
-// 📊 REPORTES
-// =============================
+// ── Reportes: barras ─────────────────────────────────────────
+// HTML id: report-bars
 export function renderReportBars(model) {
   const container = document.getElementById('report-bars');
   if (!container) return;
+  container.innerHTML = '';
 
-  container.innerHTML = `<p style="opacity:.6">Gráfico generado</p>`;
+  if (!model.summary.length) {
+    container.innerHTML = '<p style="opacity:.6;padding:16px">Sin datos</p>';
+    return;
+  }
+
+  const sorted = [...model.summary].sort((a, b) => b.percentage - a.percentage);
+
+  sorted.forEach(({ student, percentage }) => {
+    const name = `${student.name} ${student.lastname || ''}`.trim();
+    const wrap = el('div', { style: { marginBottom: '10px' } });
+
+    const labelRow = el('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' } });
+    labelRow.append(
+      el('span', { text: name }),
+      el('span', { text: `${percentage}%`, style: { color: pctColor(percentage), fontWeight: '700' } }),
+    );
+
+    const barBg = el('div', { style: { background: 'var(--surface2)', borderRadius: '6px', height: '8px', overflow: 'hidden' } });
+    const barFg = el('div', { style: { height: '8px', borderRadius: '6px', background: pctColor(percentage), width: `${percentage}%` } });
+    barBg.append(barFg);
+
+    wrap.append(labelRow, barBg);
+    container.append(wrap);
+  });
 }
 
 
+// ── Reportes: tabla ──────────────────────────────────────────
+// HTML id: report-tbody
 export function renderReportTable(model) {
-  const container = document.getElementById('report-table');
-  if (!container) return;
+  const tbody = document.getElementById('report-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
 
-  container.innerHTML = `<p style="opacity:.6">Tabla generada</p>`;
+  if (!model.summary.length) {
+    const row = document.createElement('tr');
+    row.innerHTML = `<td colspan="4" style="text-align:center;opacity:.6;padding:16px">Sin datos para el rango seleccionado</td>`;
+    tbody.append(row);
+    return;
+  }
+
+  model.summary.forEach(({ student, present, absent, percentage }) => {
+    const name = `${student.name} ${student.lastname || ''}`.trim();
+    const row  = document.createElement('tr');
+    row.innerHTML = `
+      <td>${name}</td>
+      <td>${present}</td>
+      <td>${absent}</td>
+      <td style="font-weight:700;color:${pctColor(percentage)}">${percentage}%</td>
+    `;
+    tbody.append(row);
+  });
 }

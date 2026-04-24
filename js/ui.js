@@ -1,26 +1,30 @@
+// ============================================================
+// ui.js
+// ============================================================
+
 import { APP_CONFIG } from './config.js';
 import { getCurrentPage as getCurrentPageState, setCurrentPage } from './store/appStore.js';
 import { avatarStyle } from './utils.js';
 
 const PAGE_TITLES = {
   dashboard: 'Dashboard',
-  scanner: 'Escaner de Asistencia',
-  students: 'Alumnos',
-  groups: 'Grupos',
-  reports: 'Reportes',
-  activity: 'Registro de Actividad',
-  whatsapp: 'WhatsApp',
-  config: 'Configuracion',
+  scanner:   'Escáner de Asistencia',
+  students:  'Alumnos',
+  groups:    'Grupos',
+  reports:   'Reportes',
+  activity:  'Registro de Actividad',
+  whatsapp:  'WhatsApp',
+  config:    'Configuración',
 };
 
 export function showPage(pageId) {
-  document.querySelectorAll('.page').forEach((page) => page.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(`page-${pageId}`)?.classList.add('active');
 
-  const pageTitle = document.getElementById('page-title');
-  if (pageTitle) pageTitle.textContent = PAGE_TITLES[pageId] || APP_CONFIG.shortName;
+  const titleEl = document.getElementById('page-title');
+  if (titleEl) titleEl.textContent = PAGE_TITLES[pageId] || APP_CONFIG.shortName;
 
-  document.querySelectorAll('.nav-item, .bottom-nav-item').forEach((item) => {
+  document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(item => {
     item.classList.toggle('active', item.dataset.page === pageId);
   });
 
@@ -34,18 +38,15 @@ export function getCurrentPage() {
 }
 
 export function initNavigation() {
-  document.querySelectorAll('.nav-item[data-page], .bottom-nav-item[data-page]').forEach((item) => {
-    item.addEventListener('click', () => showPage(item.dataset.page));
+  document.querySelectorAll('.nav-item[data-page], .bottom-nav-item[data-page]').forEach(item => {
+    // Clonar para eliminar listeners previos
+    const clone = item.cloneNode(true);
+    item.parentNode.replaceChild(clone, item);
+    clone.addEventListener('click', () => showPage(clone.dataset.page));
   });
 
   document.getElementById('hamburger-btn')?.addEventListener('click', toggleSidebar);
   document.getElementById('sidebar-overlay')?.addEventListener('click', closeSidebar);
-
-  document.querySelectorAll('.modal-overlay').forEach((overlay) => {
-    overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) overlay.classList.remove('show');
-    });
-  });
 }
 
 export function openSidebar() {
@@ -85,7 +86,7 @@ export function showToast(message, type = '', duration = 3500) {
   }, duration);
 }
 
-export function notifyError(error, fallback = 'Ocurrio un error inesperado.') {
+export function notifyError(error, fallback = 'Ocurrió un error inesperado.') {
   const message = error?.message || fallback;
   showToast(message, 'error');
 }
@@ -101,8 +102,8 @@ export function closeModal(id) {
 export function showLoader(message = 'Cargando datos...') {
   const loader = document.getElementById('global-loader');
   if (!loader) return;
-  const paragraph = loader.querySelector('p');
-  if (paragraph) paragraph.textContent = message;
+  const p = loader.querySelector('p');
+  if (p) p.textContent = message;
   loader.classList.add('show');
 }
 
@@ -111,42 +112,36 @@ export function hideLoader() {
 }
 
 export function startClock() {
-  const element = document.getElementById('topbar-time');
-  if (!element) return;
-
+  const el = document.getElementById('topbar-time');
+  if (!el) return;
   const tick = () => {
-    element.textContent = new Date().toLocaleTimeString(APP_CONFIG.locale, {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
+    el.textContent = new Date().toLocaleTimeString(APP_CONFIG.locale, {
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
     });
   };
-
   tick();
   setInterval(tick, 1000);
 }
 
 export function setUserBadge(name, email) {
-  const element = document.getElementById('user-badge');
-  if (element) element.textContent = name || email || 'Usuario';
+  const el = document.getElementById('user-badge');
+  if (el) el.textContent = name || email || 'Usuario';
 }
 
 export function setDbStatus(connected) {
-  const element = document.getElementById('db-status-badge');
-  if (!element) return;
-
-  element.textContent = connected ? 'Conectado ✅' : 'Sin conexion';
-  element.style.background = connected ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.15)';
-  element.style.color = connected ? '#22c55e' : '#64748b';
+  const el = document.getElementById('db-status-badge');
+  if (!el) return;
+  el.textContent = connected ? 'Conectado ✅' : 'Sin conexión';
+  el.style.background = connected ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.15)';
+  el.style.color       = connected ? '#22c55e' : '#64748b';
 }
 
 export function setWaStatus(configured) {
-  const element = document.getElementById('wa-status-badge');
-  if (!element) return;
-
-  element.textContent = configured ? 'Configurado ✅' : 'Sin configurar';
-  element.style.background = configured ? 'rgba(37,211,102,0.15)' : 'rgba(100,116,139,0.15)';
-  element.style.color = configured ? '#25d366' : '#64748b';
+  const el = document.getElementById('wa-status-badge');
+  if (!el) return;
+  el.textContent = configured ? 'Configurado ✅' : 'Sin configurar';
+  el.style.background = configured ? 'rgba(37,211,102,0.15)' : 'rgba(100,116,139,0.15)';
+  el.style.color       = configured ? '#25d366' : '#64748b';
 }
 
 export function getAvatarStyle(name = '') {
