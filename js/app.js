@@ -2,7 +2,7 @@
 // app.js — ORQUESTADOR PRINCIPAL
 // ============================================================
 
-import { initNavigation, showPage, startClock, setUserBadge, setDbStatus, showLoader, hideLoader, notifyError, openModal, closeModal } from './ui.js';
+import { initNavigation, showPage, startClock, setUserBadge, setDbStatus, showLoader, hideLoader, notifyError, closeModal } from './ui.js';
 import { isConnected, resetSupabase } from './supabaseClient.js';
 import { getCurrentUser, logout } from './auth.js';
 import { applyBrandingToDocument } from './ui/brandingUI.js';
@@ -14,6 +14,7 @@ import { loadStudentsPage, loadGroupsPage, saveStudentFromModal, saveGroupFromMo
 import { loadReportsPage, generateReport, exportReport, renderActivityPage } from './reports.js';
 import { initWaForm } from './whatsapp.js';
 import { startScanner, stopScanner, setScanMode, processCode, renderTodayRecords, enterKiosk, exitKiosk } from './scanner.js';
+import { triggerCarnetDownload } from './ui/studentsUI.js';
 
 window.addEventListener('DOMContentLoaded', async () => {
   const connected = isConnected();
@@ -56,7 +57,6 @@ async function bootApp() {
   try {
     showLoader();
 
-    // Auth check
     const user = await getCurrentUser();
     if (!user) {
       window.location.href = 'index.html';
@@ -65,51 +65,45 @@ async function bootApp() {
 
     setUserBadge(user.user_metadata?.name || '', user.email || '');
 
-    // Branding
     const branding = await loadBranding();
     applyBrandingToDocument(branding);
 
-    // Navigation
     initNavigation();
     startClock();
 
-    // Lazy load por página
+    // ── Lazy load por página ─────────────────────────────────
     window.addEventListener('pagechange', async ({ detail: { page } }) => {
       if (hasLoadedPage(page)) {
-        // Scanner: re-renderizar registros del día cada vez
         if (page === 'scanner') renderTodayRecords().catch(() => {});
         return;
       }
       markPageLoaded(page);
 
       try {
-        if (page === 'dashboard')  await loadDashboardStats();
-        if (page === 'students')   await loadStudentsPage();
-        if (page === 'groups')     await loadGroupsPage();
-        if (page === 'reports')    await loadReportsPage();
-        if (page === 'activity')   await renderActivityPage();
-        if (page === 'whatsapp')   await initWaForm();
-        if (page === 'config')     await initWaForm();
-        if (page === 'scanner')    await renderTodayRecords();
+        if (page === 'dashboard') await loadDashboardStats();
+        if (page === 'students')  await loadStudentsPage();
+        if (page === 'groups')    await loadGroupsPage();
+        if (page === 'reports')   await loadReportsPage();
+        if (page === 'activity')  await renderActivityPage();
+        if (page === 'whatsapp')  await initWaForm();
+        if (page === 'config')    await initWaForm();
+        if (page === 'scanner')   await renderTodayRecords();
       } catch (e) {
         notifyError(e);
       }
     });
 
-    // ── Logout ──────────────────────────────────────────────
+    // ── Logout ───────────────────────────────────────────────
     document.getElementById('btn-logout')?.addEventListener('click', async () => {
       try { await logout(); } catch (_) {}
       window.location.href = 'index.html';
     });
 
-    // ── Cerrar modales via data-close ────────────────────────
+    // ── Cerrar modales ───────────────────────────────────────
     document.querySelectorAll('[data-close]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        closeModal(btn.getAttribute('data-close'));
-      });
+      btn.addEventListener('click', () => closeModal(btn.getAttribute('data-close')));
     });
 
-    // Click fuera del modal cierra
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
       overlay.addEventListener('click', e => {
         if (e.target === overlay) closeModal(overlay.id);
@@ -163,37 +157,25 @@ async function bootApp() {
     document.getElementById('btn-enter-kiosk')?.addEventListener('click', () => enterKiosk());
     document.getElementById('kiosk-exit-btn')?.addEventListener('click', () => exitKiosk());
 
-    // ── Carné / Barcode ──────────────────────────────────────
-    document.getElementById('btn-download-barcode')?.addEventListener('click', () => {
-      const svg = document.getElementById('barcode-svg');
-      if (!svg) return;
+    // ── Carné: descarga PNG ──────────────────────────────────
+    document.getElementById('btn-download-barcode')?.addEventListener('click', async () => {
       try {
-        const data = new XMLSerializer().serializeToString(svg);
-        const blob = new Blob([data], { type: 'image/svg+xml' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'carne_estudiantil.svg';
-        a.click();
-        URL.revokeObjectURL(a.href);
-      } catch (_) {}
+        await triggerCarnetDownload();
+      } catch (e) {
+        notifyError(e, 'No se pudo generar el carné.');
+      }
     });
 
-    // ── Config: clicks en items ──────────────────────────────
-    document.getElementById('config-kiosk')?.addEventListener('click', () => {
-      showPage('scanner');
-    });
-    document.getElementById('config-reports')?.addEventListener('click', () => {
-      showPage('reports');
-    });
-    document.getElementById('config-whatsapp')?.addEventListener('click', () => {
-      showPage('whatsapp');
-    });
+    // ── Config ───────────────────────────────────────────────
+    document.getElementById('config-kiosk')?.addEventListener('click', () => showPage('scanner'));
+    document.getElementById('config-reports')?.addEventListener('click', () => showPage('reports'));
+    document.getElementById('config-whatsapp')?.addEventListener('click', () => showPage('whatsapp'));
     document.getElementById('config-db')?.addEventListener('click', () => {
       const overlay = document.getElementById('setup-overlay');
       if (overlay) overlay.style.display = 'flex';
     });
 
-    // ── Carga inicial: dashboard ─────────────────────────────
+    // ── Carga inicial ────────────────────────────────────────
     showPage('dashboard');
     await loadDashboardStats();
     markPageLoaded('dashboard');
