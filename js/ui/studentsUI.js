@@ -15,6 +15,15 @@ import {
 import { avatarStyle, clearValues, getValue, setValue } from '../utils.js';
 import { clearNode, el } from './dom.js';
 import { closeModal, openModal } from '../ui.js';
+import { downloadCarnetPNG } from './carnetGenerator.js';
+
+// Estado interno del modal de carné
+let _barcodeStudent = null;
+let _barcodeGroup   = null;
+
+// Getter para que app.js acceda al estado actual
+export function getBarcodeStudent() { return _barcodeStudent; }
+export function getBarcodeGroup()   { return _barcodeGroup; }
 
 
 // ── Tabla de Alumnos ─────────────────────────────────────────
@@ -26,9 +35,9 @@ export function renderStudentsTableUI({ onEdit, onDelete, onBarcode }, { filter 
   const query = filter.toLowerCase();
 
   const list = getStudentsState().filter(student => {
-    const fullName    = `${student.name} ${student.lastname || ''}`.toLowerCase();
-    const matchQuery  = !query || fullName.includes(query) || (student.code || '').toLowerCase().includes(query);
-    const matchGroup  = !groupId || student.group_id === groupId;
+    const fullName   = `${student.name} ${student.lastname || ''}`.toLowerCase();
+    const matchQuery = !query || fullName.includes(query) || (student.code || '').toLowerCase().includes(query);
+    const matchGroup = !groupId || student.group_id === groupId;
     return matchQuery && matchGroup;
   });
 
@@ -41,9 +50,9 @@ export function renderStudentsTableUI({ onEdit, onDelete, onBarcode }, { filter 
     const cell = el('td', { attrs: { colspan: '5' } });
     const empty = el('div', { className: 'empty-state' });
     empty.append(
-      el('div', { className: 'empty-state-icon', text: '🎓' }),
+      el('div', { className: 'empty-state-icon',  text: '🎓' }),
       el('div', { className: 'empty-state-title', text: 'Sin alumnos' }),
-      el('div', { className: 'empty-state-desc', text: 'Agrega tu primer alumno con el botón +' }),
+      el('div', { className: 'empty-state-desc',  text: 'Agrega tu primer alumno con el botón +' }),
     );
     cell.append(empty);
     row.append(cell);
@@ -52,12 +61,11 @@ export function renderStudentsTableUI({ onEdit, onDelete, onBarcode }, { filter 
   }
 
   list.forEach(student => {
-    const row    = el('tr');
-    const group  = getGroupById(student.group_id);
-    const avatar = avatarStyle(student.name);
+    const row      = el('tr');
+    const group    = getGroupById(student.group_id);
+    const avatar   = avatarStyle(student.name);
     const fullName = `${student.name} ${student.lastname || ''}`.trim();
 
-    // Celda alumno
     const studentCell = el('td');
     const wrap        = el('div', { className: 'student-cell' });
     const avatarNode  = el('div', {
@@ -80,7 +88,6 @@ export function renderStudentsTableUI({ onEdit, onDelete, onBarcode }, { filter 
       el('td', { text: student.parent_name || '—' }),
     );
 
-    // Acciones
     const actionCell = el('td');
     const actions    = el('div', { className: 'student-actions' });
 
@@ -102,7 +109,7 @@ export function renderStudentsTableUI({ onEdit, onDelete, onBarcode }, { filter 
 
 // ── Grid de Grupos ───────────────────────────────────────────
 export function renderGroupsGridUI({ onEdit, onDelete }) {
-  const grid     = document.getElementById('groups-grid');
+  const grid = document.getElementById('groups-grid');
   if (!grid) return;
   clearNode(grid);
 
@@ -161,14 +168,13 @@ export function populateGroupSelectsUI() {
     if (current) select.value = current;
   });
 
-  // También el select de filtro de alumnos
   const filterSelect = document.getElementById('student-group-filter');
   if (filterSelect) {
     const current = filterSelect.value;
     filterSelect.innerHTML = '<option value="">Todos los grupos</option>';
     getGroupsState().forEach(group => {
       const opt = document.createElement('option');
-      opt.value = group.id;
+      opt.value       = group.id;
       opt.textContent = group.name;
       filterSelect.appendChild(opt);
     });
@@ -192,7 +198,6 @@ export function openStudentModalUI(studentId = null) {
       setValue('st-dob',      student.dob         || '');
       setValue('st-parent',   student.parent_name || '');
       setValue('st-phone',    student.phone       || '');
-      // group_id necesita que el select ya esté poblado
       setTimeout(() => {
         const sel = document.getElementById('st-group');
         if (sel) sel.value = student.group_id || '';
@@ -218,10 +223,10 @@ export function getStudentModalPayload() {
     payload: {
       name:        getValue('st-name'),
       lastname:    getValue('st-lastname'),
-      dob:         getValue('st-dob')    || null,
+      dob:         getValue('st-dob')   || null,
       parent_name: getValue('st-parent'),
       phone:       getValue('st-phone'),
-      group_id:    getValue('st-group')  || null,
+      group_id:    getValue('st-group') || null,
     },
   };
 }
@@ -268,8 +273,12 @@ export function getGroupModalPayload() {
 }
 
 
-// ── Modal Carné / Barcode ─────────────────────────────────────
-export function openBarcodeModalUI(student) {
+// ── Modal Carné ───────────────────────────────────────────────
+export function openBarcodeModalUI(student, group = null) {
+  // Guardar referencia para la descarga
+  _barcodeStudent = student;
+  _barcodeGroup   = group || getGroupById(student.group_id) || null;
+
   const nameEl     = document.getElementById('barcode-student-name');
   const idEl       = document.getElementById('barcode-id-text');
   const canvasWrap = document.getElementById('barcode-canvas');
@@ -288,9 +297,9 @@ export function openBarcodeModalUI(student) {
           lineColor:    '#000',
           background:   '#fff',
           width:        2,
-          height:       80,
+          height:       72,
           displayValue: true,
-          fontSize:     14,
+          fontSize:     13,
         });
       } catch (_) {
         canvasWrap.innerHTML = `<p style="color:#ef4444;text-align:center">Error generando código</p>`;
@@ -301,4 +310,10 @@ export function openBarcodeModalUI(student) {
   }
 
   openModal('modal-barcode');
+}
+
+// Descarga PNG del carné — llamada desde app.js
+export async function triggerCarnetDownload() {
+  if (!_barcodeStudent) return;
+  await downloadCarnetPNG(_barcodeStudent, _barcodeGroup);
 }
